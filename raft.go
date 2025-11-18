@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+
 	"math/rand"
 	"net/http"
+
 	"sync"
 	"time"
 )
@@ -50,6 +52,8 @@ type Raft struct {
 	heartBeatTimer    *time.Ticker // 心跳计时器
 	lastHeartBeatTime int64        // 上次收到心跳的时间
 	timeout           int          // 心跳超时时间
+	lacalnum          int          //算术操作的本地结果
+	variables         map[string]int
 }
 
 // NewRaft 创建并初始化一个新的 Raft 实例
@@ -67,9 +71,10 @@ func NewRaft(id string) *Raft {
 		sentLength:        make(map[string]int),
 		ackedLength:       make(map[string]int),
 		electionTimer:     time.NewTimer(time.Duration(rand.Intn(5000)+5000) * time.Millisecond),
-		heartBeatTimer:    time.NewTicker(1000 * time.Millisecond),
+		heartBeatTimer:    time.NewTicker(2000 * time.Millisecond),
 		lastHeartBeatTime: time.Now().UnixMilli(),
 		timeout:           5,
+		lacalnum:          0,
 	}
 	return rf
 }

@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"strconv"
+	"strings"
+	// "encoding/json"
+    // "os"
+	
 )
 
 type LogEntry struct {
@@ -35,7 +40,8 @@ func (rf *Raft) Boradcast(newLog LogEntry) {
 		newLog.Term = rf.currentTerm
 		newLog.Index = len(rf.Logs) + 1
 		rf.Logs = append(rf.Logs, newLog)
-		// 添加日志
+		// 日志写入文件中
+		
 		rf.mu.Unlock()
 		for i := 0; i < len(rf.peers); i++ {
 			peer := rf.peers[i]
@@ -150,6 +156,7 @@ func (rf *Raft) AppendEntries(logLength int, leaderCommit int, entries *[]LogEnt
 	if logLength+len(*entries) > len(rf.Logs) {
 		startIndex := len(rf.Logs) - logLength
 		rf.Logs = append(rf.Logs, (*entries)[startIndex:]...)
+
 	}
 
 	if leaderCommit > rf.CommitLength {
@@ -225,3 +232,48 @@ func max(arr []int) int {
 	}
 	return maxVal
 }
+
+func (rf *Raft) executeCommand(command string) {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
+	// 解析命令,例如 "x=x+1", "x=x*2", "x=x-2", "x=x%7"
+	if strings.HasPrefix(command, "x=x+") {
+		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x+"))
+		rf.variables["x"] += val
+	} else if strings.HasPrefix(command, "x=x*") {
+		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x*"))
+		rf.variables["x"] *= val
+	} else if strings.HasPrefix(command, "x=x-") {
+		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x-"))
+		rf.variables["x"] -= val
+	} else if strings.HasPrefix(command, "x=x%") {
+		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x%"))
+		if val != 0 {
+			rf.variables["x"] %= val
+		}
+	}
+	fmt.Printf("节点 %s 执行命令 %s, x当前值: %d\n", rf.id, command, rf.variables["x"])
+}
+
+
+// func (rf *Raft) persistLog(entry LogEntry) error {  
+//     // 使用追加模式打开文件  
+//     file, err := os.OpenFile(  
+//         fmt.Sprintf("raft_log_%s.json", rf.id),  
+//         os.O_APPEND|os.O_CREATE|os.O_WRONLY,  
+//         0644,  
+//     )  
+//     if err != nil {  
+//         return err  
+//     }  
+//     defer file.Close()  
+      
+//     // 将日志条目编码为 JSON 并写入  
+//     encoder := json.NewEncoder(file)  
+//     if err := encoder.Encode(entry); err != nil {  
+//         return err  
+//     }  
+      
+//     return nil  
+// }

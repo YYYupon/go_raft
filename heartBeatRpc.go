@@ -27,7 +27,7 @@ func (rf *Raft) ReceiveHeartBeat(args *HeartBeatArgs, reply *HeartBeatReply) err
 		return nil
 	}
 
-	fmt.Printf("节点 %s 收到来自 %s 的心跳消息\n", rf.id, args.LeaderId)
+	fmt.Printf("%s receive %s（term:%d） heartbeat\n", rf.id, args.LeaderId, args.Term)
 	fmt.Println(rf.Logs)
 	rf.currentTerm = args.Term
 	rf.currentLeader = args.LeaderId
@@ -42,7 +42,7 @@ func (rf *Raft) ReceiveHeartBeat(args *HeartBeatArgs, reply *HeartBeatReply) err
 func (rf *Raft) SendHeartBeat() {
 	rf.mu.Lock()
 
-	fmt.Println(rf.id + " start heartBeat")
+	fmt.Printf("Leader %s(term:%d) send heartbeat\n", rf.id, rf.currentTerm)
 	if rf.currentRole != Leader {
 		rf.lastHeartBeatTime = 1
 		rf.mu.Unlock()

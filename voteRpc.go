@@ -36,7 +36,8 @@ func (rf *Raft) becomeCandidate() bool {
 		rf.votedFor = rf.id
 		rf.currentTerm += 1
 		rf.voteReceived = append(rf.voteReceived, "localhost:"+rf.id)
-		fmt.Println("本节点已变更为候选人状态")
+		fmt.Println(rf.id + " become Candidate" + fmt.Sprintf("(term:%d)", rf.currentTerm))
+
 		return true
 	} else {
 		return false
@@ -53,7 +54,7 @@ func (rf *Raft) startElection(args *RequestVoteArgs) {
 
 	// 决定选举是否中断
 	cancelled := false
-	// 向所有其他节点发送请求投票的 RPC		
+	// 向所有其他节点发送请求投票的 RPC
 	for i := 0; i < len(rf.peers); i++ {
 		peer := rf.peers[i]
 		if peer == "localhost:"+rf.id {
@@ -66,7 +67,7 @@ func (rf *Raft) startElection(args *RequestVoteArgs) {
 			if rf.currentRole != Candidate {
 				return
 			}
-			fmt.Printf("节点 %s 向 %s 发起投票请求\n", rf.id, peer)
+			fmt.Printf("%s(term:%d) 向 %s 发起投票\n", rf.id, rf.currentTerm, peer)
 
 			client, err := rpc.DialHTTP("tcp", peer)
 			if err != nil {
@@ -145,7 +146,7 @@ func (rf *Raft) ReplyVote(args *RequestVoteArgs, reply *RequestVoteReply) error 
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	fmt.Printf("节点 %s 收到来自 %s 的投票请求\n", rf.id, args.NodeId)
+	fmt.Printf("%s(term:%d) receive %s 的投票\n", rf.id, rf.currentTerm, args.NodeId)
 
 	myLogTerm := 0
 	if len(rf.Logs) > 0 {
@@ -178,7 +179,7 @@ func (rf *Raft) CollectVotes(reply *RequestVoteReply) bool {
 		if len(rf.voteReceived) > len(rf.peers)/2 {
 			rf.currentRole = Leader
 			rf.currentLeader = rf.id
-			fmt.Println("已获得超过二分之一票数")
+			fmt.Println("超过二分之一票数")
 			return true
 		}
 	} else if reply.Term > rf.currentTerm {
