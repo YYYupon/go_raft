@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
-	"strconv"
-	"strings"
-	// "encoding/json"
-    // "os"
+	"encoding/json"
+    "os"
+	"io"
 	
 )
 
@@ -41,7 +40,8 @@ func (rf *Raft) Boradcast(newLog LogEntry) {
 		newLog.Index = len(rf.Logs) + 1
 		rf.Logs = append(rf.Logs, newLog)
 		// 日志写入文件中
-		
+		rf.SaveLogs([]LogEntry{newLog})
+		fmt.Printf("Leader %s 添加日志: %+v\n", rf.id, newLog)
 		rf.mu.Unlock()
 		for i := 0; i < len(rf.peers); i++ {
 			peer := rf.peers[i]
@@ -156,9 +156,9 @@ func (rf *Raft) AppendEntries(logLength int, leaderCommit int, entries *[]LogEnt
 	if logLength+len(*entries) > len(rf.Logs) {
 		startIndex := len(rf.Logs) - logLength
 		rf.Logs = append(rf.Logs, (*entries)[startIndex:]...)
-
+		rf.SaveLogs(rf.Logs)
 	}
-
+	
 	if leaderCommit > rf.CommitLength {
 		for i := rf.CommitLength; i < leaderCommit; i++ {
 			fmt.Println("Follwer Commit Log ", i)
@@ -218,6 +218,7 @@ func (rf *Raft) CommitEntries() {
 		rf.CommitLength = maxReady
 		fmt.Println(rf.id, rf.CommitLength)
 	}
+	
 }
 
 func max(arr []int) int {
@@ -233,28 +234,28 @@ func max(arr []int) int {
 	return maxVal
 }
 
-func (rf *Raft) executeCommand(command string) {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+// func (rf *Raft) executeCommand(command string) {
+// 	rf.mu.Lock()
+// 	defer rf.mu.Unlock()
 
-	// 解析命令,例如 "x=x+1", "x=x*2", "x=x-2", "x=x%7"
-	if strings.HasPrefix(command, "x=x+") {
-		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x+"))
-		rf.variables["x"] += val
-	} else if strings.HasPrefix(command, "x=x*") {
-		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x*"))
-		rf.variables["x"] *= val
-	} else if strings.HasPrefix(command, "x=x-") {
-		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x-"))
-		rf.variables["x"] -= val
-	} else if strings.HasPrefix(command, "x=x%") {
-		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x%"))
-		if val != 0 {
-			rf.variables["x"] %= val
-		}
-	}
-	fmt.Printf("节点 %s 执行命令 %s, x当前值: %d\n", rf.id, command, rf.variables["x"])
-}
+// 	// 解析命令,例如 "x=x+1", "x=x*2", "x=x-2", "x=x%7"
+// 	if strings.HasPrefix(command, "x=x+") {
+// 		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x+"))
+// 		rf.variables["x"] += val
+// 	} else if strings.HasPrefix(command, "x=x*") {
+// 		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x*"))
+// 		rf.variables["x"] *= val
+// 	} else if strings.HasPrefix(command, "x=x-") {
+// 		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x-"))
+// 		rf.variables["x"] -= val
+// 	} else if strings.HasPrefix(command, "x=x%") {
+// 		val, _ := strconv.Atoi(strings.TrimPrefix(command, "x=x%"))
+// 		if val != 0 {
+// 			rf.variables["x"] %= val
+// 		}
+// 	}
+// 	fmt.Printf("节点 %s 执行命令 %s, x当前值: %d\n", rf.id, command, rf.variables["x"])
+// }
 
 
 // func (rf *Raft) persistLog(entry LogEntry) error {  
@@ -277,3 +278,55 @@ func (rf *Raft) executeCommand(command string) {
       
 //     return nil  
 // }
+
+
+// SaveLogs 将 rf.Logs 保存到本地
+func (rf *Raft) SaveLogs(newLogs []LogEntry) error {
+    filename := "raft_log_" + rf.id + ".json"
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+    
+        return err
+    }
+    defer file.Close()
+
+    // 将newlog内容写入文件
+	encoder := json.NewEncoder(file)
+    for _, entry := range newLogs {
+        if err := encoder.Encode(entry); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+
+// LoadLogs 启动时读取日志
+func (rf *Raft) LoadLogs() error {
+	filename := "raft_log_" + rf.id + ".json"
+   	file, err := os.Open(filename)
+    if err != nil {
+        if os.IsNotExist(err) {
+            rf.Logs = []LogEntry{}
+            return nil
+        }
+        return err
+    }
+    defer file.Close()
+
+    decoder := json.NewDecoder(file)
+    var logs []LogEntry
+    for {
+        var entry LogEntry
+        if err := decoder.Decode(&entry); err != nil {
+            if err == io.EOF {
+                break
+            }
+            return err
+        }
+        logs = append(logs, entry)
+    }
+
+    rf.Logs = logs
+    return nil
+}

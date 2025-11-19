@@ -53,7 +53,7 @@ type Raft struct {
 	lastHeartBeatTime int64        // 上次收到心跳的时间
 	timeout           int          // 心跳超时时间
 	lacalnum          int          //算术操作的本地结果
-	variables         map[string]int
+	
 }
 
 // NewRaft 创建并初始化一个新的 Raft 实例
@@ -76,6 +76,7 @@ func NewRaft(id string) *Raft {
 		timeout:           5,
 		lacalnum:          0,
 	}
+	rf.LoadLogs()
 	return rf
 }
 

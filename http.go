@@ -23,7 +23,8 @@ func (rf *Raft) getRequest(writer http.ResponseWriter, request *http.Request) {
 
 		for i := 0; i < count; i++ {
 			m := LogEntry{
-				Command: fmt.Sprintf("%s", message),
+				// Command: fmt.Sprintf("%s", message),
+				Command: message,
 			}
 			go rf.Boradcast(m)
 			// 接收到消息后，直接将其转发给领导者节点进行处理
