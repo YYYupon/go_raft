@@ -45,6 +45,10 @@ func (rf *Raft) becomeCandidate() bool {
 }
 
 func (rf *Raft) startElection(args *RequestVoteArgs) {
+
+	//选举时间
+	electionStartTime := time.Now()
+
 	// 开始选举的时候才开始选举定时
 	rf.resetElectionTimer()
 	fmt.Print("选举Leader\n")
@@ -114,9 +118,10 @@ func (rf *Raft) startElection(args *RequestVoteArgs) {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	rf.electionTimer.Stop()
+	electionDuration := time.Since(electionStartTime)
 
 	if cancelled {
-		fmt.Println("选举成功")
+		fmt.Println("选举成功，消耗时间:", electionDuration)
 		rf.httpListen()
 		for _, follower := range rf.peers {
 			if follower == "localhost:"+rf.id {
@@ -127,7 +132,7 @@ func (rf *Raft) startElection(args *RequestVoteArgs) {
 			go rf.Replicating(follower)
 		}
 	} else {
-		fmt.Println("选举失败")
+		fmt.Println("选举失败，消耗时间:", electionDuration)
 		rf.currentRole = Follower
 
 		if rf.currentLeader == rf.id {

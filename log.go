@@ -58,7 +58,7 @@ func (rf *Raft) Boradcast(newLog LogEntry) {
 // Raft 5
 func (rf *Raft) Replicating(peer string) error {
 	i := rf.sentLength[peer]
-	ei := len(rf.Logs) - 1
+	ei := len(rf.Logs) - 1 
 	prevLogTerm := 0
 
 	var entries []LogEntry
@@ -128,6 +128,7 @@ func (rf *Raft) Replying(args *LogRequestArgs, reply *LogReplyArgs) error {
 	// 如果任期相同且日志条目有效，追加日志并设置确认号和标志
 	if args.Term == rf.currentTerm && logOk {
 		rf.AppendEntries(args.LogLength, args.CommitLength, &args.Entries)
+		rf.SaveLogs(args.Entries)
 		ack := args.LogLength + len(args.Entries)
 		reply.Ack = ack
 		reply.Flag = true
@@ -156,7 +157,7 @@ func (rf *Raft) AppendEntries(logLength int, leaderCommit int, entries *[]LogEnt
 	if logLength+len(*entries) > len(rf.Logs) {
 		startIndex := len(rf.Logs) - logLength
 		rf.Logs = append(rf.Logs, (*entries)[startIndex:]...)
-		rf.SaveLogs(rf.Logs)
+		
 	}
 	
 	if leaderCommit > rf.CommitLength {
@@ -282,16 +283,20 @@ func max(arr []int) int {
 
 // SaveLogs 将 rf.Logs 保存到本地
 func (rf *Raft) SaveLogs(newLogs []LogEntry) error {
-    filename := "raft_log_" + rf.id + ".json"
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-    if err != nil {
+    // 确保 nodelog 目录存在
+    if err := os.MkdirAll("nodelog", 0755); err != nil {
+        return err
+    }
     
+    filename := fmt.Sprintf("nodelog/raft_log_%s.json", rf.id)
+    file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
         return err
     }
     defer file.Close()
 
     // 将newlog内容写入文件
-	encoder := json.NewEncoder(file)
+    encoder := json.NewEncoder(file)
     for _, entry := range newLogs {
         if err := encoder.Encode(entry); err != nil {
             return err
@@ -302,9 +307,10 @@ func (rf *Raft) SaveLogs(newLogs []LogEntry) error {
 
 
 // LoadLogs 启动时读取日志
+// LoadLogs 启动时读取日志
 func (rf *Raft) LoadLogs() error {
-	filename := "raft_log_" + rf.id + ".json"
-   	file, err := os.Open(filename)
+    filename := fmt.Sprintf("nodelog/raft_log_%s.json", rf.id)
+    file, err := os.Open(filename)
     if err != nil {
         if os.IsNotExist(err) {
             rf.Logs = []LogEntry{}
